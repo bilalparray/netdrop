@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
-import 'package:netdrop/pages/tabs/history_tab.dart';import 'package:netdrop/pages/tabs/receive_tab.dart';
+import 'package:netdrop/pages/tabs/history_tab.dart';
+import 'package:netdrop/pages/tabs/receive_tab.dart';
 import 'package:netdrop/pages/tabs/send_tab.dart';
 import 'package:netdrop/pages/tabs/settings_tab.dart';
-import 'package:netdrop/widget/design/netdrop_logo.dart';import 'package:netdrop/widget/responsive_builder.dart';
+import 'package:netdrop/provider/home_tab_provider.dart';
+import 'package:netdrop/widget/design/netdrop_logo.dart';
+import 'package:netdrop/widget/responsive_builder.dart';
 import 'package:refena_flutter/refena_flutter.dart';
-enum HomeTab { home, receive, transfers, settings }
 
 class HomePage extends StatefulWidget {
   const HomePage({super.key});
@@ -15,7 +17,7 @@ class HomePage extends StatefulWidget {
 
 class _HomePageState extends State<HomePage> with Refena {
   final _pageController = PageController();
-  HomeTab _currentTab = HomeTab.home;
+  HomeTab? _lastSyncedTab;
 
   @override
   void dispose() {
@@ -23,19 +25,25 @@ class _HomePageState extends State<HomePage> with Refena {
     super.dispose();
   }
 
-  void _changeTab(HomeTab tab) {
-    setState(() => _currentTab = tab);
-    _pageController.jumpToPage(tab.index);
-  }
-
   @override
   Widget build(BuildContext context) {
+    final currentTab = context.watch(homeTabProvider);
+    if (_lastSyncedTab != currentTab) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!mounted || !_pageController.hasClients) {
+          return;
+        }
+        _pageController.jumpToPage(currentTab.index);
+        _lastSyncedTab = currentTab;
+      });
+    }
+
     final isDesktop = ResponsiveBuilder.isDesktop(context);
     final isMobile = ResponsiveBuilder.isMobile(context);
 
     return Scaffold(
       appBar: AppBar(
-        title: const NetDropLogo(size: 36),
+        title: const NetDropAppBarTitle(),
         centerTitle: false,
       ),
       body: Row(
@@ -43,8 +51,10 @@ class _HomePageState extends State<HomePage> with Refena {
           if (!isMobile)
             NavigationRail(
               extended: isDesktop,
-              selectedIndex: _currentTab.index,
-              onDestinationSelected: (index) => _changeTab(HomeTab.values[index]),
+              selectedIndex: currentTab.index,
+              onDestinationSelected: (index) {
+                context.notifier(homeTabProvider).select(HomeTab.values[index]);
+              },
               labelType: isDesktop ? NavigationRailLabelType.none : NavigationRailLabelType.all,
               destinations: const [
                 NavigationRailDestination(
@@ -85,8 +95,10 @@ class _HomePageState extends State<HomePage> with Refena {
       ),
       bottomNavigationBar: isMobile
           ? NavigationBar(
-              selectedIndex: _currentTab.index,
-              onDestinationSelected: (index) => _changeTab(HomeTab.values[index]),
+              selectedIndex: currentTab.index,
+              onDestinationSelected: (index) {
+                context.notifier(homeTabProvider).select(HomeTab.values[index]);
+              },
               destinations: const [
                 NavigationDestination(
                   icon: Icon(Icons.upload_outlined),

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:netdrop/config/assets.dart';
+import 'package:netdrop/config/constants.dart';
 
 class NetDropLogo extends StatelessWidget {
   const NetDropLogo({
@@ -24,6 +25,28 @@ class NetDropLogo extends StatelessWidget {
         fit: BoxFit.cover,
         semanticLabel: 'NetDrop',
       ),
+    );
+  }
+}
+
+class NetDropAppBarTitle extends StatelessWidget {
+  const NetDropAppBarTitle({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const NetDropLogo(size: 36),
+        const SizedBox(width: 12),
+        Text(
+          appDisplayName,
+          style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+                letterSpacing: -0.3,
+              ),
+        ),
+      ],
     );
   }
 }

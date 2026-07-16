@@ -6,6 +6,7 @@ import 'package:netdrop/config/theme.dart';
 
 import 'package:netdrop/model/state/server_state.dart';
 
+import 'package:netdrop/provider/home_tab_provider.dart';
 import 'package:netdrop/provider/network/server_provider.dart';
 
 import 'package:netdrop/util/format_helpers.dart';
@@ -15,8 +16,6 @@ import 'package:netdrop/widget/design/netdrop_card.dart';
 import 'package:netdrop/widget/received_file_list_tile.dart';
 
 import 'package:refena_flutter/refena_flutter.dart';
-
-import 'package:routerino/routerino.dart';
 
 
 
@@ -39,55 +38,49 @@ class ReceivePage extends StatefulWidget {
 
 
 class _ReceivePageState extends State<ReceivePage> with Refena {
-
   var _handledDismiss = false;
+  var _allowPop = false;
 
-
-
-  void _maybeDismiss(BuildContext context, ServerState serverState) {
-
+  Future<void> _closePage(BuildContext context) async {
     if (_handledDismiss) {
-
       return;
-
     }
-
-
-
-    final active = serverState.activeSession;
-
-    if (active != null && active.sessionId == widget.session.sessionId) {
-
-      return;
-
-    }
-
-
-
     _handledDismiss = true;
 
+    if (!_allowPop && mounted) {
+      setState(() => _allowPop = true);
+    }
+
     WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (context.mounted) {
+        Navigator.of(context).pop();
+      }
+    });
+  }
 
-      if (!context.mounted) {
+  void _maybeDismiss(BuildContext context, ServerState serverState) {
+    if (_handledDismiss) {
+      return;
+    }
 
+    final active = serverState.activeSession;
+    if (active != null && active.sessionId == widget.session.sessionId) {
+      return;
+    }
+
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      if (!context.mounted || _handledDismiss) {
         return;
-
       }
 
       if (active == null) {
-
         ScaffoldMessenger.of(context).showSnackBar(
-
           const SnackBar(content: Text('Transfer was cancelled by sender')),
-
         );
-
       }
 
-      context.pop();
-
+      await _closePage(context);
     });
-
   }
 
 
@@ -107,9 +100,9 @@ class _ReceivePageState extends State<ReceivePage> with Refena {
 
 
     return PopScope(
-      canPop: false,
+      canPop: _allowPop,
       onPopInvokedWithResult: (didPop, result) async {
-        if (didPop) {
+        if (didPop || _handledDismiss) {
           return;
         }
 
@@ -121,9 +114,7 @@ class _ReceivePageState extends State<ReceivePage> with Refena {
           await context.notifier(serverProvider).declineSession(widget.session.sessionId);
         }
 
-        if (context.mounted) {
-          context.pop();
-        }
+        await _closePage(context);
       },
       child: Scaffold(
 
@@ -264,43 +255,26 @@ class _ReceivePageState extends State<ReceivePage> with Refena {
               ),
 
             FilledButton(
-
               onPressed: () async {
-
                 await context.notifier(serverProvider).acceptSession(widget.session.sessionId);
-
-                if (context.mounted) {
-
-                  context.pop();
-
-                  ScaffoldMessenger.of(context).showSnackBar(
-
-                    const SnackBar(content: Text('Transfer accepted')),
-
-                  );
-
+                if (!context.mounted) {
+                  return;
                 }
-
+                context.notifier(homeTabProvider).select(HomeTab.receive);
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(content: Text('Transfer accepted')),
+                );
+                await _closePage(context);
               },
-
               child: const Text('Accept'),
-
             ),
-
             const SizedBox(height: 10),
-
             OutlinedButton(
-
               onPressed: () async {
-
                 await context.notifier(serverProvider).declineSession(widget.session.sessionId);
-
                 if (context.mounted) {
-
-                  context.pop();
-
+                  await _closePage(context);
                 }
-
               },
 
               style: netDropDangerOutlinedButtonStyle(context),

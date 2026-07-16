@@ -48,10 +48,15 @@ class _IncomingTransferListenerState extends State<IncomingTransferListener> wit
       return;
     }
 
+    if (navigator.canPop()) {
+      _presentedSessionId = session.sessionId;
+      return;
+    }
+
     _presentedSessionId = session.sessionId;
     navigator.push(
       MaterialPageRoute<void>(
-        builder: (_) => ReceivePage(session: session),
+        builder: (context) => ReceivePage(session: session),
         fullscreenDialog: true,
       ),
     );
