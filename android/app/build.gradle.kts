@@ -58,6 +58,11 @@ android {
             isShrinkResources = false
         }
     }
+
+    lint {
+        // Avoid Windows file-lock failures in lintVitalAnalyzeRelease.
+        checkReleaseBuilds = false
+    }
 }
 
 flutter {

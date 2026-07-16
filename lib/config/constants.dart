@@ -1,4 +1,7 @@
 const appDisplayName = 'NetDrop';
+const androidPackageName = 'com.qayham.netdrop';
+const playStoreListingUrl =
+    'https://play.google.com/store/apps/details?id=$androidPackageName';
 const protocolVersion = '2.1';
 const defaultPort = 53317;
 const discoveryPort = 53316;

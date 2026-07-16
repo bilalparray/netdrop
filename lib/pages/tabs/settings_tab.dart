@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:netdrop/config/app_colors.dart';
@@ -8,11 +9,13 @@ import 'package:netdrop/config/netdrop_theme_ext.dart';
 
 import 'package:netdrop/config/theme.dart';
 
+import 'package:netdrop/pages/privacy_policy_page.dart';
 import 'package:netdrop/provider/network/server_provider.dart';
 
 import 'package:netdrop/provider/settings_provider.dart';
 
 import 'package:netdrop/util/file_saver.dart';
+import 'package:netdrop/util/store_launcher.dart';
 
 import 'package:netdrop/widget/design/netdrop_card.dart';
 
@@ -283,6 +286,45 @@ class _SettingsTabState extends State<SettingsTab> with Refena {
                       color: context.nd.textSecondary,
                     ),
               ),
+              const SizedBox(height: 16),
+              const Divider(height: 1),
+              const SizedBox(height: 8),
+              if (defaultTargetPlatform == TargetPlatform.android) ...[
+                ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.system_update_outlined, color: context.cs.primary),
+                  title: const Text('Check for updates'),
+                  subtitle: Text(
+                    'Opens NetDrop on Google Play',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: context.nd.textSecondary,
+                        ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openPlayStore(context),
+                ),
+                const Divider(height: 1),
+                const SizedBox(height: 8),
+              ],
+              ListTile(
+                contentPadding: EdgeInsets.zero,
+                leading: Icon(Icons.privacy_tip_outlined, color: context.cs.primary),
+                title: const Text('Privacy Policy'),
+                subtitle: Text(
+                  'How NetDrop handles your data',
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: context.nd.textSecondary,
+                      ),
+                ),
+                trailing: const Icon(Icons.chevron_right),
+                onTap: () {
+                  Navigator.of(context).push(
+                    MaterialPageRoute<void>(
+                      builder: (_) => const PrivacyPolicyPage(),
+                    ),
+                  );
+                },
+              ),
             ],
           ),
         ),
@@ -311,7 +353,18 @@ class _SettingsTabState extends State<SettingsTab> with Refena {
 
   }
 
+  Future<void> _openPlayStore(BuildContext context) async {
+    final opened = await openPlayStoreListing();
+    if (!context.mounted) {
+      return;
+    }
 
+    if (!opened) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open Google Play ($playStoreListingUrl)')),
+      );
+    }
+  }
 
   Future<void> _confirmReset(BuildContext context) async {
 
