@@ -1,4 +1,4 @@
-const uploadConcurrency = 2;
+import 'package:netdrop/config/constants.dart';
 
 Future<void> runWithConcurrency<T>({
   required List<T> items,
@@ -30,4 +30,36 @@ Future<void> runWithConcurrency<T>({
     workers.add(runWorker());
   }
   await Future.wait(workers);
+}
+
+/// Runs [action] up to [maxAttempts] times with short backoff between failures.
+Future<void> retryWithBackoff({
+  required Future<void> Function() action,
+  int maxAttempts = uploadMaxRetries,
+  bool Function()? shouldCancel,
+  bool Function(Object error)? shouldRethrow,
+}) async {
+  Object? lastError;
+  for (var attempt = 1; attempt <= maxAttempts; attempt++) {
+    if (shouldCancel?.call() ?? false) {
+      return;
+    }
+    try {
+      await action();
+      return;
+    } catch (error) {
+      if (shouldRethrow?.call(error) ?? false) {
+        rethrow;
+      }
+      lastError = error;
+      if (attempt >= maxAttempts) {
+        break;
+      }
+      await Future<void>.delayed(Duration(milliseconds: 150 * attempt));
+    }
+  }
+  Error.throwWithStackTrace(
+    lastError!,
+    StackTrace.current,
+  );
 }

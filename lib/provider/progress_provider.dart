@@ -161,8 +161,24 @@ class ProgressService extends Notifier<ProgressState> {
     if (files.isEmpty) {
       return 0;
     }
-    final total = files.values.fold<double>(0, (sum, entry) => sum + entry.progress);
-    return total / files.length;
+
+    var weightedProgress = 0.0;
+    var totalBytes = 0;
+    for (final entry in files.values) {
+      final size = entry.size;
+      if (size <= 0) {
+        weightedProgress += entry.progress;
+        totalBytes += 1;
+        continue;
+      }
+      weightedProgress += entry.progress * size;
+      totalBytes += size;
+    }
+
+    if (totalBytes == 0) {
+      return 0;
+    }
+    return weightedProgress / totalBytes;
   }
 }
 

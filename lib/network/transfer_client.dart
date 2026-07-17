@@ -18,6 +18,101 @@ class SessionCancelledException implements Exception {
   String toString() => 'Transfer cancelled';
 }
 
+Stream<List<int>> _openFileStream(CrossFile file) {
+  if (file.bytes != null) {
+    final bytes = file.bytes!;
+    if (bytes is Uint8List) {
+      return _chunkBytes(bytes);
+    }
+    return _chunkBytes(Uint8List.fromList(bytes));
+  }
+  if (file.path == null) {
+    throw StateError('File has no path or bytes: ${file.fileName}');
+  }
+  return File(file.path!).openRead();
+}
+
+Stream<List<int>> _chunkBytes(
+  Uint8List bytes, {
+  int chunkSize = transferStreamChunkSize,
+}) async* {
+  for (var offset = 0; offset < bytes.length; offset += chunkSize) {
+    final end = (offset + chunkSize > bytes.length)
+        ? bytes.length
+        : offset + chunkSize;
+    yield bytes.sublist(offset, end);
+  }
+}
+
+/// Reusable HTTP connection pool for one prepare-upload + many file uploads.
+class UploadSession {
+  UploadSession._({
+    required HttpClient client,
+    required this.target,
+    required this.sessionId,
+    required this.files,
+  }) : _client = client;
+
+  final HttpClient _client;
+  final Device target;
+  final String sessionId;
+  final Map<String, String> files;
+  bool _closed = false;
+
+  Future<void> uploadFile({
+    required CrossFile file,
+    required String token,
+    void Function(double progress)? onProgress,
+    bool Function()? shouldCancel,
+  }) async {
+    if (_closed) {
+      throw StateError('Upload session is closed');
+    }
+
+    final uri = Uri.parse(
+      '${target.baseUrl}$apiBasePath/upload?sessionId=$sessionId&fileId=${file.id}&token=$token',
+    );
+    final request = await _client.postUrl(uri);
+    request.headers.contentType = ContentType('application', 'octet-stream');
+    request.contentLength = file.size;
+
+    final source = _openFileStream(file);
+    var sent = 0;
+    try {
+      await for (final chunk in source) {
+        if (shouldCancel?.call() ?? false) {
+          throw SessionCancelledException();
+        }
+        request.add(chunk);
+        sent += chunk.length;
+        if (file.size > 0) {
+          onProgress?.call(sent / file.size);
+        }
+      }
+
+      final response = await request.close();
+      if (response.statusCode != 200) {
+        final body = await response.transform(const Utf8Decoder()).join();
+        throw HttpException(
+          'Upload failed (${response.statusCode}): $body',
+          uri: uri,
+        );
+      }
+    } catch (error) {
+      request.abort();
+      rethrow;
+    }
+  }
+
+  Future<void> close({bool force = false}) async {
+    if (_closed) {
+      return;
+    }
+    _closed = true;
+    _client.close(force: force);
+  }
+}
+
 class TransferClient {
   TransferClient(this._securityContext);
 
@@ -29,14 +124,13 @@ class TransferClient {
     _activePrepareClient = null;
   }
 
-  Future<PrepareUploadResponseDto> prepareUpload({
+  Future<UploadSession> openUploadSession({
     required Device target,
     required RegisterDto sender,
     required List<CrossFile> files,
   }) async {
-    final client = _createClient(target.https);
+    final client = _createSessionClient(target.https);
     _activePrepareClient = client;
-    client.connectionTimeout = const Duration(seconds: 30);
     final uri = Uri.parse('${target.baseUrl}$apiBasePath/prepare-upload');
     try {
       final request = await client.postUrl(uri);
@@ -69,8 +163,10 @@ class TransferClient {
       }
 
       final json = jsonDecode(responseBody) as Map<String, dynamic>;
-      client.close(force: true);
-      return PrepareUploadResponseDto(
+      _activePrepareClient = null;
+      return UploadSession._(
+        client: client,
+        target: target,
         sessionId: json['sessionId'] as String,
         files: Map<String, String>.from(json['files'] as Map),
       );
@@ -89,48 +185,6 @@ class TransferClient {
     }
   }
 
-  Future<void> uploadFile({
-    required Device target,
-    required String sessionId,
-    required CrossFile file,
-    required String token,
-    void Function(double progress)? onProgress,
-    bool Function()? shouldCancel,
-  }) async {
-    final client = _createClient(target.https);
-    final uri = Uri.parse(
-      '${target.baseUrl}$apiBasePath/upload?sessionId=$sessionId&fileId=${file.id}&token=$token',
-    );
-    final request = await client.postUrl(uri);
-    request.headers.contentType = ContentType('application', 'octet-stream');
-    request.contentLength = file.size;
-
-    final source = _openStream(file);
-    var sent = 0;
-    await for (final chunk in source) {
-      if (shouldCancel?.call() ?? false) {
-        client.close(force: true);
-        throw SessionCancelledException();
-      }
-      request.add(chunk);
-      sent += chunk.length;
-      if (file.size > 0) {
-        onProgress?.call(sent / file.size);
-      }
-    }
-
-    final response = await request.close();
-    if (response.statusCode != 200) {
-      final body = await response.transform(const Utf8Decoder()).join();
-      client.close(force: true);
-      throw HttpException(
-        'Upload failed (${response.statusCode}): $body',
-        uri: uri,
-      );
-    }
-    client.close(force: true);
-  }
-
   Future<void> cancelSession({
     required Device target,
     String? sessionId,
@@ -145,38 +199,30 @@ class TransferClient {
         : 'fingerprint=${Uri.encodeComponent(senderFingerprint!)}';
     final client = _createClient(target.https);
     final uri = Uri.parse('${target.baseUrl}$apiBasePath/cancel?$query');
-    final request = await client.postUrl(uri);
-    await request.close();
-    client.close(force: true);
+    try {
+      final request = await client.postUrl(uri);
+      await request.close();
+    } finally {
+      client.close(force: true);
+    }
+  }
+
+  HttpClient _createSessionClient(bool useTls) {
+    final client = _createClient(useTls);
+    client.maxConnectionsPerHost = uploadConcurrency;
+    client.idleTimeout = const Duration(seconds: 30);
+    return client;
   }
 
   HttpClient _createClient(bool useTls) {
     if (useTls && _securityContext() == null) {
       throw StateError('HTTPS is enabled but no security context is available');
     }
-    return createHttpClient(https: useTls, security: _securityContext());
-  }
-
-  Stream<List<int>> _openStream(CrossFile file) {
-    if (file.bytes != null) {
-      return _chunkBytes(Uint8List.fromList(file.bytes!));
-    }
-    if (file.path == null) {
-      throw StateError('File has no path or bytes: ${file.fileName}');
-    }
-    return File(file.path!).openRead();
-  }
-
-  Stream<List<int>> _chunkBytes(
-    Uint8List bytes, {
-    int chunkSize = 64 * 1024,
-  }) async* {
-    for (var offset = 0; offset < bytes.length; offset += chunkSize) {
-      final end = (offset + chunkSize > bytes.length)
-          ? bytes.length
-          : offset + chunkSize;
-      yield bytes.sublist(offset, end);
-    }
+    return createHttpClient(
+      https: useTls,
+      security: _securityContext(),
+      connectionTimeout: const Duration(seconds: 30),
+    );
   }
 }
 

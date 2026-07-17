@@ -1,7 +1,9 @@
 import 'dart:io';
 
 import 'package:file_picker/file_picker.dart';
+import 'package:netdrop/config/constants.dart';
 import 'package:netdrop/model/cross_file.dart';
+import 'package:netdrop/network/upload_queue.dart';
 import 'package:netdrop/util/file_category.dart';
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
@@ -63,18 +65,23 @@ Future<List<CrossFile>> crossFilesFromPickerResult({
   required String fallbackMime,
 }) async {
   const uuid = Uuid();
-  final files = <CrossFile>[];
-
-  for (final picked in result.files) {
-    final file = await crossFileFromPlatformFile(
-      picked: picked,
-      fallbackMime: fallbackMime,
-      uuid: uuid,
-    );
-    if (file != null) {
-      files.add(file);
-    }
+  final picked = result.files;
+  if (picked.isEmpty) {
+    return const [];
   }
 
-  return files;
+  final slots = List<CrossFile?>.filled(picked.length, null);
+  await runWithConcurrency<int>(
+    items: List.generate(picked.length, (index) => index),
+    maxConcurrent: filePrepConcurrency,
+    worker: (index) async {
+      slots[index] = await crossFileFromPlatformFile(
+        picked: picked[index],
+        fallbackMime: fallbackMime,
+        uuid: uuid,
+      );
+    },
+  );
+
+  return [for (final file in slots) if (file != null) file];
 }

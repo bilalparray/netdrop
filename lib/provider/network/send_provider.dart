@@ -1,3 +1,4 @@
+import 'package:netdrop/config/constants.dart';
 import 'package:netdrop/model/cross_file.dart';
 import 'package:netdrop/model/device.dart';
 import 'package:netdrop/model/dto/register_dto.dart';
@@ -68,51 +69,63 @@ class SendService extends Notifier<SendState> {
       );
 
       final client = ref.read(transferClientProvider);
-      final response = await client.prepareUpload(
+      final session = await client.openUploadSession(
         target: device,
         sender: sender,
         files: files,
       );
 
       if (_cancelRequested) {
+        await session.close(force: true);
         throw SessionCancelledException();
       }
 
       state = SendState(
         activeSession: SendSessionState(
           sessionId: localSessionId,
-          remoteSessionId: response.sessionId,
-          fileTokens: response.files,
+          remoteSessionId: session.sessionId,
+          fileTokens: session.files,
           status: SendSessionStatus.uploading,
         ),
       );
 
-      await runWithConcurrency<CrossFile>(
-        items: files,
-        maxConcurrent: uploadConcurrency,
-        shouldCancel: () => _cancelRequested,
-        worker: (file) async {
-          if (_cancelRequested) {
-            throw SessionCancelledException();
-          }
+      try {
+        await runWithConcurrency<CrossFile>(
+          items: files,
+          maxConcurrent: uploadConcurrency,
+          shouldCancel: () => _cancelRequested,
+          worker: (file) async {
+            if (_cancelRequested) {
+              throw SessionCancelledException();
+            }
 
-          final token = response.files[file.id];
-          if (token == null) {
-            progress.failFile(file.id);
-            return;
-          }
+            final token = session.files[file.id];
+            if (token == null) {
+              progress.failFile(file.id);
+              return;
+            }
 
-          await client.uploadFile(
-            target: device,
-            sessionId: response.sessionId,
-            file: file,
-            token: token,
-            shouldCancel: () => _cancelRequested,
-            onProgress: (value) => progress.updateFile(file.id, value),
-          );
-          progress.completeFile(file.id);
-        },
-      );
+            await retryWithBackoff(
+              shouldCancel: () {
+                if (_cancelRequested) {
+                  throw SessionCancelledException();
+                }
+                return false;
+              },
+              shouldRethrow: (error) => error is SessionCancelledException,
+              action: () => session.uploadFile(
+                file: file,
+                token: token,
+                shouldCancel: () => _cancelRequested,
+                onProgress: (value) => progress.updateFile(file.id, value),
+              ),
+            );
+            progress.completeFile(file.id);
+          },
+        );
+      } finally {
+        await session.close(force: _cancelRequested);
+      }
 
       state = SendState(
         activeSession: state.activeSession!.copyWith(
