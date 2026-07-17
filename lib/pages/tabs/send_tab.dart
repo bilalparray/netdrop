@@ -11,7 +11,9 @@ import 'package:netdrop/model/device.dart';
 
 import 'package:netdrop/network/multicast_service.dart';
 
+import 'package:netdrop/pages/pair_device_page.dart';
 import 'package:netdrop/pages/progress_page.dart';
+import 'package:netdrop/provider/device_preferences_provider.dart';
 
 import 'package:netdrop/provider/local_ip_provider.dart';
 
@@ -64,14 +66,19 @@ class SendTab extends StatelessWidget {
 
     final localFingerprint = settings.fingerprint;
 
-    final nearbyDevices = devices.deviceListExcluding(localFingerprint);
-
     final selectedFiles = context.watch(selectedFilesProvider);
     final preparingFiles = context.watch(filePrepInProgressProvider);
+    final devicePrefs = context.watch(devicePreferencesProvider);
+    final prefsNotifier = context.notifier(devicePreferencesProvider);
 
     final deviceType = context.watch(deviceTypeProvider);
 
     final osLabel = context.watch(localDeviceInfoProvider).osLabel;
+
+    final nearbyDevices = sortDevices(
+      devices.deviceListExcluding(localFingerprint),
+      pinnedFingerprints: devicePrefs.pinnedFingerprints,
+    );
 
 
 
@@ -104,49 +111,45 @@ class SendTab extends StatelessWidget {
         const SizedBox(height: 24),
 
         SectionHeader(
-
           title: 'Nearby devices',
-
-          trailing: FilledButton.tonalIcon(
-
-            onPressed: devices.scanning
-
-                ? null
-
-                : () => context.global.dispatchAsync(StartDiscoveryAction()),
-
-            icon: devices.scanning
-
-                ? const SizedBox(
-
-                    width: 16,
-
-                    height: 16,
-
-                    child: CircularProgressIndicator(strokeWidth: 2),
-
-                  )
-
-                : const Icon(Icons.refresh, size: 18),
-
-            label: Text(devices.scanning ? 'Scanning…' : 'Refresh'),
-
-            style: FilledButton.styleFrom(
-
-              backgroundColor: context.nd.surfaceMuted,
-
-              foregroundColor: context.cs.primary,
-
-              minimumSize: const Size(0, 40),
-
-              padding: const EdgeInsets.symmetric(horizontal: 14),
-
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
-
-            ),
-
+          trailing: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              FilledButton.tonalIcon(
+                onPressed: () => _openPairDevice(context),
+                icon: const Icon(Icons.qr_code_scanner, size: 18),
+                label: const Text('Pair'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: context.nd.surfaceMuted,
+                  foregroundColor: context.cs.primary,
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+              const SizedBox(width: 8),
+              FilledButton.tonalIcon(
+                onPressed: devices.scanning
+                    ? null
+                    : () => context.global.dispatchAsync(StartDiscoveryAction()),
+                icon: devices.scanning
+                    ? const SizedBox(
+                        width: 16,
+                        height: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh, size: 18),
+                label: Text(devices.scanning ? 'Scanning…' : 'Refresh'),
+                style: FilledButton.styleFrom(
+                  backgroundColor: context.nd.surfaceMuted,
+                  foregroundColor: context.cs.primary,
+                  minimumSize: const Size(0, 40),
+                  padding: const EdgeInsets.symmetric(horizontal: 14),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                ),
+              ),
+            ],
           ),
-
         ),
 
         const SizedBox(height: 12),
@@ -159,20 +162,26 @@ class SendTab extends StatelessWidget {
 
             title: 'No devices found',
 
-            subtitle: 'Make sure both devices are on the same Wi‑Fi network, then tap Refresh.',
+            subtitle: 'Make sure both devices are on the same Wi‑Fi network, or pair manually.',
 
-            action: FilledButton.icon(
-
-              onPressed: devices.scanning
-
-                  ? null
-
-                  : () => context.global.dispatchAsync(StartDiscoveryAction()),
-
-              icon: const Icon(Icons.refresh),
-
-              label: const Text('Refresh'),
-
+            action: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                FilledButton.icon(
+                  onPressed: () => _openPairDevice(context),
+                  icon: const Icon(Icons.qr_code_scanner),
+                  label: const Text('Pair device'),
+                ),
+                FilledButton.icon(
+                  onPressed: devices.scanning
+                      ? null
+                      : () => context.global.dispatchAsync(StartDiscoveryAction()),
+                  icon: const Icon(Icons.refresh),
+                  label: const Text('Refresh'),
+                ),
+              ],
             ),
 
           )
@@ -186,11 +195,12 @@ class SendTab extends StatelessWidget {
               padding: const EdgeInsets.only(bottom: 10),
 
               child: DeviceListTile(
-
                 device: device,
-
+                isPinned: devicePrefs.isPinned(device.fingerprint),
+                isTrusted: devicePrefs.isTrusted(device.fingerprint),
+                onTogglePin: () => prefsNotifier.togglePinned(device.fingerprint),
+                onToggleTrust: () => prefsNotifier.toggleTrusted(device.fingerprint),
                 onTap: () => _showSendSheet(context, device),
-
               ),
 
             ),
@@ -258,6 +268,12 @@ class SendTab extends StatelessWidget {
   }
 
 
+
+  Future<void> _openPairDevice(BuildContext context) async {
+    await Navigator.of(context).push<void>(
+      MaterialPageRoute(builder: (context) => const PairDevicePage()),
+    );
+  }
 
   Future<void> _showSendSheet(BuildContext context, Device device) async {
 

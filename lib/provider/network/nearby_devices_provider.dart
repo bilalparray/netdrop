@@ -58,15 +58,21 @@ class SetScanningAction extends ReduxAction<NearbyDevicesService, NearbyDevicesS
 }
 
 class RemoveStaleDevicesAction extends ReduxAction<NearbyDevicesService, NearbyDevicesState> {
-  RemoveStaleDevicesAction({this.maxAgeMs = 30000});
+  RemoveStaleDevicesAction({this.maxAgeMs = 30000, this.preserveFingerprints = const {}});
 
   final int maxAgeMs;
+  final Set<String> preserveFingerprints;
 
   @override
   NearbyDevicesState reduce() {
     final now = DateTime.now().millisecondsSinceEpoch;
     final updated = Map<String, Device>.from(state.devices)
-      ..removeWhere((_, device) => now - device.lastSeen > maxAgeMs);
+      ..removeWhere((fingerprint, device) {
+        if (preserveFingerprints.contains(fingerprint)) {
+          return false;
+        }
+        return now - device.lastSeen > maxAgeMs;
+      });
     return state.copyWith(devices: updated);
   }
 }

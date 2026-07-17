@@ -10,6 +10,8 @@ import 'package:netdrop/config/netdrop_theme_ext.dart';
 import 'package:netdrop/config/theme.dart';
 
 import 'package:netdrop/pages/privacy_policy_page.dart';
+import 'package:netdrop/provider/device_preferences_provider.dart';
+import 'package:netdrop/provider/network/nearby_devices_provider.dart';
 import 'package:netdrop/provider/network/server_provider.dart';
 
 import 'package:netdrop/provider/settings_provider.dart';
@@ -328,6 +330,12 @@ class _SettingsTabState extends State<SettingsTab> with Refena {
             ],
           ),
         ),
+
+        const SizedBox(height: 32),
+
+        const SectionHeader(title: 'Trusted devices'),
+        const SizedBox(height: 12),
+        _TrustedDevicesCard(),
 
         const SizedBox(height: 32),
 
@@ -754,4 +762,45 @@ class _SaveLocationsCard extends StatelessWidget {
 
 }
 
+class _TrustedDevicesCard extends StatelessWidget {
+  const _TrustedDevicesCard();
+
+  @override
+  Widget build(BuildContext context) {
+    final prefs = context.watch(devicePreferencesProvider);
+    final devices = context.watch(nearbyDevicesProvider).devices;
+    final trusted = prefs.trustedFingerprints.toList()..sort();
+
+    if (trusted.isEmpty) {
+      return NetDropCard(
+        child: Text(
+          'Long-press a device on the Send tab and choose “Trust device” to auto-accept incoming files.',
+          style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: context.nd.textSecondary,
+              ),
+        ),
+      );
+    }
+
+    return NetDropCard(
+      padding: EdgeInsets.zero,
+      child: Column(
+        children: [
+          for (var i = 0; i < trusted.length; i++) ...[
+            if (i > 0) const Divider(height: 1),
+            ListTile(
+              leading: const Icon(Icons.verified_user, color: NetDropColors.online),
+              title: Text(devices[trusted[i]]?.alias ?? trusted[i]),
+              subtitle: const Text('Auto-accepts incoming transfers'),
+              trailing: IconButton(
+                icon: const Icon(Icons.close),
+                onPressed: () => context.notifier(devicePreferencesProvider).setTrusted(trusted[i], false),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
 

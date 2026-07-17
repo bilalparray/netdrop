@@ -3,6 +3,7 @@ import 'package:netdrop/config/constants.dart';
 import 'package:netdrop/util/device_name.dart';
 import 'package:netdrop/model/settings_state.dart';
 import 'package:netdrop/model/stored_security_context.dart';
+import 'package:netdrop/model/device_preferences.dart';
 import 'package:netdrop/model/transfer_history_entry.dart';
 import 'package:netdrop/util/security_helper.dart';
 import 'package:refena/refena.dart';
@@ -18,6 +19,9 @@ class PersistenceService {
   static const _httpsKey = 'nd_https';
   static const _securityKey = 'nd_security_context';
   static const _historyKey = 'nd_transfer_history';
+  static const _trustedKey = 'nd_trusted_devices';
+  static const _pinnedKey = 'nd_pinned_devices';
+  static const _manualKey = 'nd_manual_devices';
 
   static Future<PersistenceService> initialize() async {
     final prefs = await SharedPreferences.getInstance();
@@ -78,6 +82,44 @@ class PersistenceService {
     await _prefs.setString(_historyKey, encoded);
   }
 
+  DevicePreferencesState loadDevicePreferences() {
+    final trusted = _readStringSet(_trustedKey);
+    final pinned = _readStringSet(_pinnedKey);
+    final manualRaw = _prefs.getString(_manualKey);
+    final manual = <String, ManualDeviceRecord>{};
+    if (manualRaw != null) {
+      final decoded = jsonDecode(manualRaw) as List<dynamic>;
+      for (final entry in decoded) {
+        final record = ManualDeviceRecord.fromJson(
+          Map<String, dynamic>.from(entry as Map),
+        );
+        manual[record.fingerprint] = record;
+      }
+    }
+    return DevicePreferencesState(
+      trustedFingerprints: trusted,
+      pinnedFingerprints: pinned,
+      manualDevices: manual,
+    );
+  }
+
+  Future<void> saveDevicePreferences(DevicePreferencesState prefs) async {
+    await _prefs.setStringList(_trustedKey, prefs.trustedFingerprints.toList());
+    await _prefs.setStringList(_pinnedKey, prefs.pinnedFingerprints.toList());
+    final manual = prefs.manualDevices.values.map((e) => e.toJson()).toList();
+    await _prefs.setString(_manualKey, jsonEncode(manual));
+  }
+
+  Set<String> _readStringSet(String key) {
+    return _prefs.getStringList(key)?.toSet() ?? {};
+  }
+
+  Future<void> clearDevicePreferences() async {
+    await _prefs.remove(_trustedKey);
+    await _prefs.remove(_pinnedKey);
+    await _prefs.remove(_manualKey);
+  }
+
   Future<({StoredSecurityContext security, SettingsState settings})> resetToDefaults() async {
     await _prefs.clear();
     final security = SecurityHelper.generate();
@@ -91,6 +133,7 @@ class PersistenceService {
     );
     await saveSettings(settings);
     await saveHistory(const []);
+    await clearDevicePreferences();
     return (security: security, settings: settings);
   }
 }

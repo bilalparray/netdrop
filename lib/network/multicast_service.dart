@@ -6,6 +6,7 @@ import 'package:logging/logging.dart';
 import 'package:netdrop/config/constants.dart';
 import 'package:netdrop/model/device.dart';
 import 'package:netdrop/model/dto/register_dto.dart';
+import 'package:netdrop/provider/device_preferences_provider.dart';
 import 'package:netdrop/provider/local_ip_provider.dart';
 import 'package:netdrop/provider/network/nearby_devices_provider.dart';
 import 'package:netdrop/provider/security_provider.dart';
@@ -174,6 +175,15 @@ class StartDiscoveryAction extends AsyncGlobalAction {
       await ref.read(multicastServiceProvider).sendAnnouncement();
       await _httpSubnetScan(ref);
     } finally {
+      final prefs = ref.read(devicePreferencesProvider);
+      ref.redux(nearbyDevicesProvider).dispatch(
+            RemoveStaleDevicesAction(
+              preserveFingerprints: {
+                ...prefs.manualDevices.keys,
+                ...prefs.pinnedFingerprints,
+              },
+            ),
+          );
       ref.redux(nearbyDevicesProvider).dispatch(SetScanningAction(false));
     }
   }

@@ -49,5 +49,35 @@
 		<false/>
 		<key>NSPhotoLibraryUsageDescription</key>
 		<string>NetDrop needs access to your photos so you can select images to send.</string>
+		<key>NSCameraUsageDescription</key>
+		<string>NetDrop uses the camera to scan QR codes for pairing with other devices.</string>
+		<key>NSLocalNetworkUsageDescription</key>
+		<string>NetDrop needs local network access to discover and transfer files with nearby devices.</string>
+		<key>CFBundleURLTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleURLSchemes</key>
+				<array>
+					<string>netdrop</string>
+				</array>
+			</dict>
+		</array>
+		<key>CFBundleDocumentTypes</key>
+		<array>
+			<dict>
+				<key>CFBundleTypeName</key>
+				<string>All Files</string>
+				<key>LSHandlerRank</key>
+				<string>Alternate</string>
+				<key>LSItemContentTypes</key>
+				<array>
+					<string>public.item</string>
+					<string>public.data</string>
+					<string>public.content</string>
+				</array>
+			</dict>
+		</array>
+		<key>LSSupportsOpeningDocumentsInPlace</key>
+		<true/>
 	</dict>
 </plist>

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:netdrop/model/settings_state.dart';
 import 'package:netdrop/network/multicast_service.dart';
+import 'package:netdrop/provider/device_preferences_provider.dart';
 import 'package:netdrop/provider/history_provider.dart';
 import 'package:netdrop/provider/network/nearby_devices_provider.dart';
 import 'package:netdrop/provider/network/send_provider.dart';
@@ -51,6 +52,8 @@ class SettingsService extends Notifier<SettingsState> {
 
     ref.notifier(historyProvider).clearHistory();
     ref.redux(nearbyDevicesProvider).dispatch(ClearDevicesAction());
+    await ref.read(persistenceProvider).clearDevicePreferences();
+    await ref.notifier(devicePreferencesProvider).reset();
     ref.notifier(progressProvider).clear();
     ref.notifier(sendProvider).clearSession();
     ref.notifier(serverProvider).clearActiveSession();

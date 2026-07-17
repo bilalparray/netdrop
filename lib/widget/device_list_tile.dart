@@ -10,11 +10,19 @@ class DeviceListTile extends StatelessWidget {
     required this.device,
     required this.onTap,
     this.showOnline = true,
+    this.isPinned = false,
+    this.isTrusted = false,
+    this.onTogglePin,
+    this.onToggleTrust,
   });
 
   final Device device;
   final VoidCallback onTap;
   final bool showOnline;
+  final bool isPinned;
+  final bool isTrusted;
+  final VoidCallback? onTogglePin;
+  final VoidCallback? onToggleTrust;
 
   String get _subtitle {
     final model = device.deviceModel?.trim();
@@ -34,6 +42,9 @@ class DeviceListTile extends StatelessWidget {
       borderRadius: BorderRadius.circular(20),
       child: InkWell(
         onTap: onTap,
+        onLongPress: (onTogglePin != null || onToggleTrust != null)
+            ? () => _showActions(context)
+            : null,
         borderRadius: BorderRadius.circular(20),
         child: Ink(
           decoration: BoxDecoration(
@@ -65,12 +76,27 @@ class DeviceListTile extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        device.alias,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                              fontWeight: FontWeight.w600,
-                              color: context.cs.onSurface,
+                      Row(
+                        children: [
+                          Flexible(
+                            child: Text(
+                              device.alias,
+                              style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w600,
+                                    color: context.cs.onSurface,
+                                  ),
+                              overflow: TextOverflow.ellipsis,
                             ),
+                          ),
+                          if (isPinned) ...[
+                            const SizedBox(width: 6),
+                            Icon(Icons.push_pin, size: 14, color: context.cs.primary),
+                          ],
+                          if (isTrusted) ...[
+                            const SizedBox(width: 6),
+                            Icon(Icons.verified_user, size: 14, color: NetDropColors.online),
+                          ],
+                        ],
                       ),
                       const SizedBox(height: 4),
                       Text(
@@ -92,6 +118,28 @@ class DeviceListTile extends StatelessWidget {
                       shape: BoxShape.circle,
                     ),
                   ),
+                if (onTogglePin != null || onToggleTrust != null)
+                  PopupMenuButton<String>(
+                    icon: Icon(Icons.more_vert, color: nd.textSecondary, size: 20),
+                    onSelected: (value) {
+                      switch (value) {
+                        case 'pin':
+                          onTogglePin?.call();
+                        case 'trust':
+                          onToggleTrust?.call();
+                      }
+                    },
+                    itemBuilder: (context) => [
+                      PopupMenuItem(
+                        value: 'pin',
+                        child: Text(isPinned ? 'Unpin device' : 'Pin device'),
+                      ),
+                      PopupMenuItem(
+                        value: 'trust',
+                        child: Text(isTrusted ? 'Remove trust' : 'Trust device'),
+                      ),
+                    ],
+                  ),
                 Container(
                   width: 40,
                   height: 40,
@@ -108,6 +156,35 @@ class DeviceListTile extends StatelessWidget {
               ],
             ),
           ),
+        ),
+      ),
+    );
+  }
+
+  void _showActions(BuildContext context) {
+    showModalBottomSheet<void>(
+      context: context,
+      builder: (context) => SafeArea(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            ListTile(
+              leading: Icon(isPinned ? Icons.push_pin_outlined : Icons.push_pin),
+              title: Text(isPinned ? 'Unpin device' : 'Pin device'),
+              onTap: () {
+                Navigator.pop(context);
+                onTogglePin?.call();
+              },
+            ),
+            ListTile(
+              leading: Icon(isTrusted ? Icons.verified_user_outlined : Icons.verified_user),
+              title: Text(isTrusted ? 'Remove trust (ask before receive)' : 'Trust device (auto-accept)'),
+              onTap: () {
+                Navigator.pop(context);
+                onToggleTrust?.call();
+              },
+            ),
+          ],
         ),
       ),
     );

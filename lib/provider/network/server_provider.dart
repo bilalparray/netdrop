@@ -11,7 +11,9 @@ import 'package:netdrop/model/state/server_state.dart';
 import 'package:netdrop/model/transfer_history_entry.dart';
 import 'package:netdrop/network/transfer_client.dart';
 import 'package:netdrop/util/file_saver.dart';
+import 'package:netdrop/provider/device_preferences_provider.dart';
 import 'package:netdrop/provider/history_provider.dart';
+import 'package:netdrop/provider/home_tab_provider.dart';
 import 'package:netdrop/provider/local_ip_provider.dart';
 import 'package:netdrop/provider/network/nearby_devices_provider.dart';
 import 'package:netdrop/provider/progress_provider.dart';
@@ -438,6 +440,11 @@ class ServerService extends Notifier<ServerState> {
       'Incoming transfer from ${sender.alias} (${session.files.length} files)',
     );
     onIncomingSession?.call(session);
+
+    if (ref.read(devicePreferencesProvider).isTrusted(sender.fingerprint)) {
+      await acceptSession(sessionId);
+      ref.notifier(homeTabProvider).select(HomeTab.receive);
+    }
 
     try {
       final response = await completer.future.timeout(
