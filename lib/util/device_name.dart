@@ -12,6 +12,10 @@ class DeviceNameHelper {
 
   /// Human-readable name for this device (Settings name, model, or hostname).
   static Future<String> resolveModelName() async {
+    if (kIsWeb) {
+      return 'Browser';
+    }
+
     try {
       if (Platform.isAndroid) {
         final systemName = await _readAndroidSystemName();
@@ -91,6 +95,10 @@ class DeviceNameHelper {
   }
 
   static String resolveOsLabel() {
+    if (kIsWeb) {
+      return 'Web';
+    }
+
     return switch (Platform.operatingSystem) {
       'android' => 'Android',
       'ios' => 'iOS',

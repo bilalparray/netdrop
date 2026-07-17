@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:netdrop/config/constants.dart';
 import 'package:netdrop/config/init.dart';
@@ -5,6 +6,7 @@ import 'package:netdrop/config/theme.dart';
 import 'package:netdrop/pages/home_page.dart';
 import 'package:netdrop/provider/network/server_provider.dart';
 import 'package:netdrop/provider/settings_provider.dart';
+import 'package:netdrop/util/web_splash.dart';
 import 'package:netdrop/widget/design/netdrop_logo.dart';
 import 'package:netdrop/widget/incoming_transfer_listener.dart';
 import 'package:refena_flutter/refena_flutter.dart';
@@ -29,22 +31,42 @@ class NetDropApp extends StatefulWidget {
 }
 
 class _NetDropAppState extends State<NetDropApp> with Refena {
-  var _ready = false;
+  var _ready = kIsWeb;
 
   @override
   void initState() {
     super.initState();
+
+    if (kIsWeb) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => removeWebSplash());
+      ensureRef((ref) async {
+        try {
+          await postInit(ref);
+        } catch (error, stackTrace) {
+          debugPrint('postInit failed: $error\n$stackTrace');
+        }
+      });
+      return;
+    }
+
     ensureRef((ref) async {
-      await postInit(ref);
-      if (mounted) {
-        setState(() => _ready = true);
+      try {
+        await postInit(ref);
+      } catch (error, stackTrace) {
+        debugPrint('postInit failed: $error\n$stackTrace');
+      } finally {
+        if (mounted) {
+          setState(() => _ready = true);
+        }
       }
     });
   }
 
   @override
   void dispose() {
-    ref.notifier(serverProvider).stopServer();
+    if (!kIsWeb) {
+      ref.notifier(serverProvider).stopServer();
+    }
     super.dispose();
   }
 
@@ -60,11 +82,11 @@ class _NetDropAppState extends State<NetDropApp> with Refena {
       themeMode: themeMode,
       navigatorKey: Routerino.navigatorKey,
       navigatorObservers: [RouterinoObserver()],
-      home: RouterinoHome(
-        builder: () => _ready
-            ? const IncomingTransferListener(child: HomePage())
-            : const _StartupSplash(),
-      ),
+      home: _ready
+          ? RouterinoHome(
+              builder: () => const IncomingTransferListener(child: HomePage()),
+            )
+          : const _StartupSplash(),
     );
   }
 }

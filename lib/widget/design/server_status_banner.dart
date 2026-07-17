@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:netdrop/config/app_colors.dart';
 import 'package:netdrop/config/netdrop_theme_ext.dart';
@@ -38,6 +39,48 @@ class _ServerStatusBannerState extends State<ServerStatusBanner> {
     final server = context.watch(serverProvider);
     if (server.running) {
       return const SizedBox.shrink();
+    }
+
+    if (kIsWeb) {
+      return Padding(
+        padding: const EdgeInsets.only(bottom: 12),
+        child: Material(
+          color: NetDropColors.warning.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(16),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Icon(Icons.info_outline, color: NetDropColors.warning, size: 22),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        'Web preview only',
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                              color: NetDropColors.warning,
+                            ),
+                      ),
+                      const SizedBox(height: 4),
+                      Text(
+                        'LAN file transfer needs the Android or desktop app. '
+                        'You can browse settings and transfer history here.',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: context.nd.textSecondary,
+                            ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      );
     }
 
     return Padding(

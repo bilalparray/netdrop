@@ -42,7 +42,11 @@ class ServerService extends Notifier<ServerState> {
       return;
     }
 
-    state = state.copyWith(starting: true, clearError: true, portBlocked: false);
+    state = state.copyWith(
+      starting: true,
+      clearError: true,
+      portBlocked: false,
+    );
 
     try {
       if (_server != null) {
@@ -58,7 +62,9 @@ class ServerService extends Notifier<ServerState> {
         portBlocked: false,
         clearError: true,
       );
-      _logger.info('${settings.https ? 'HTTPS' : 'HTTP'} server listening on port ${settings.port}');
+      _logger.info(
+        '${settings.https ? 'HTTPS' : 'HTTP'} server listening on port ${settings.port}',
+      );
     } catch (error, stackTrace) {
       if (scanAlternatePorts && _isAddressInUse(error)) {
         final recovered = await _tryAlternatePorts();
@@ -78,7 +84,11 @@ class ServerService extends Notifier<ServerState> {
           portBlocked: portBlocked,
         ),
       );
-      _logger.severe('Failed to start server on port ${ref.read(settingsProvider).port}', error, stackTrace);
+      _logger.severe(
+        'Failed to start server on port ${ref.read(settingsProvider).port}',
+        error,
+        stackTrace,
+      );
     }
   }
 
@@ -113,7 +123,7 @@ class ServerService extends Notifier<ServerState> {
           clearError: true,
         );
         _logger.info(
-          'HTTP server listening on port $port (${startPort} was busy — often LocalSend or another app)',
+          'HTTP server listening on port $port ($startPort was busy — Please clear all apps from recents);',
         );
         return true;
       } catch (error) {
@@ -161,7 +171,8 @@ class ServerService extends Notifier<ServerState> {
 
   bool _isAddressInUse(Object error) {
     final text = error.toString().toLowerCase();
-    if (text.contains('address already in use') || text.contains('eaddrinuse')) {
+    if (text.contains('address already in use') ||
+        text.contains('eaddrinuse')) {
       return true;
     }
     if (error is SocketException) {
@@ -211,7 +222,9 @@ class ServerService extends Notifier<ServerState> {
       status: ReceiveSessionStatus.accepted,
     );
     state = state.copyWith(activeSession: accepted);
-    ref.notifier(progressProvider).startSession(
+    ref
+        .notifier(progressProvider)
+        .startSession(
           accepted.files.values
               .map(
                 (file) => (
@@ -234,7 +247,9 @@ class ServerService extends Notifier<ServerState> {
       return;
     }
 
-    await ref.notifier(historyProvider).recordReceive(
+    await ref
+        .notifier(historyProvider)
+        .recordReceive(
           session: pending.session,
           outcome: TransferOutcome.declined,
         );
@@ -262,7 +277,11 @@ class ServerService extends Notifier<ServerState> {
   void _healStaleSessions() {
     final now = DateTime.now();
     final expiredPending = _pendingSessions.entries
-        .where((entry) => now.difference(entry.value.createdAt) > const Duration(minutes: 6))
+        .where(
+          (entry) =>
+              now.difference(entry.value.createdAt) >
+              const Duration(minutes: 6),
+        )
         .map((entry) => entry.key)
         .toList();
     for (final sessionId in expiredPending) {
@@ -281,7 +300,9 @@ class ServerService extends Notifier<ServerState> {
     }
 
     if (session.status == ReceiveSessionStatus.accepted &&
-        !_activeTokens.values.any((target) => target.sessionId == session.sessionId)) {
+        !_activeTokens.values.any(
+          (target) => target.sessionId == session.sessionId,
+        )) {
       ref.notifier(progressProvider).clear();
       state = state.copyWith(clearSession: true);
     }
@@ -301,19 +322,42 @@ class ServerService extends Notifier<ServerState> {
 
     return switch (session.status) {
       ReceiveSessionStatus.completed || ReceiveSessionStatus.declined => false,
-      ReceiveSessionStatus.accepted =>
-        _activeTokens.values.any((target) => target.sessionId == session.sessionId),
-      ReceiveSessionStatus.pending => _pendingSessions.containsKey(session.sessionId),
+      ReceiveSessionStatus.accepted => _activeTokens.values.any(
+        (target) => target.sessionId == session.sessionId,
+      ),
+      ReceiveSessionStatus.pending => _pendingSessions.containsKey(
+        session.sessionId,
+      ),
     };
   }
 
   Future<void> _handleRequest(HttpRequest request) async {
     final routes = [
-      SimpleServerRoute(method: 'GET', path: '$apiBasePath/info', handler: _handleInfo),
-      SimpleServerRoute(method: 'POST', path: '$apiBasePath/register', handler: _handleRegister),
-      SimpleServerRoute(method: 'POST', path: '$apiBasePath/prepare-upload', handler: _handlePrepareUpload),
-      SimpleServerRoute(method: 'POST', path: '$apiBasePath/upload', handler: _handleUpload),
-      SimpleServerRoute(method: 'POST', path: '$apiBasePath/cancel', handler: _handleCancel),
+      SimpleServerRoute(
+        method: 'GET',
+        path: '$apiBasePath/info',
+        handler: _handleInfo,
+      ),
+      SimpleServerRoute(
+        method: 'POST',
+        path: '$apiBasePath/register',
+        handler: _handleRegister,
+      ),
+      SimpleServerRoute(
+        method: 'POST',
+        path: '$apiBasePath/prepare-upload',
+        handler: _handlePrepareUpload,
+      ),
+      SimpleServerRoute(
+        method: 'POST',
+        path: '$apiBasePath/upload',
+        handler: _handleUpload,
+      ),
+      SimpleServerRoute(
+        method: 'POST',
+        path: '$apiBasePath/cancel',
+        handler: _handleCancel,
+      ),
     ];
     await SimpleServer(routes).handle(request);
   }
@@ -337,7 +381,9 @@ class ServerService extends Notifier<ServerState> {
     final ip = request.connectionInfo?.remoteAddress.address ?? 'unknown';
 
     if (dto.fingerprint != ref.read(settingsProvider).fingerprint) {
-      ref.redux(nearbyDevicesProvider).dispatch(
+      ref
+          .redux(nearbyDevicesProvider)
+          .dispatch(
             RegisterDeviceAction(
               dto.toDevice(ip),
               localFingerprint: ref.read(settingsProvider).fingerprint,
@@ -360,12 +406,16 @@ class ServerService extends Notifier<ServerState> {
 
   Future<void> _handlePrepareUpload(HttpRequest request) async {
     if (_isReceivingBusy) {
-      await SimpleServer.writeJson(request, HttpStatus.conflict, {'message': 'Busy'});
+      await SimpleServer.writeJson(request, HttpStatus.conflict, {
+        'message': 'Busy',
+      });
       return;
     }
 
     final body = await SimpleServer.readBody(request);
-    final dto = PrepareUploadRequestDto.fromJson(jsonDecode(body) as Map<String, dynamic>);
+    final dto = PrepareUploadRequestDto.fromJson(
+      jsonDecode(body) as Map<String, dynamic>,
+    );
     const uuid = Uuid();
     final sessionId = uuid.v4();
     final sender = RegisterDto.fromJson(dto.info);
@@ -379,36 +429,44 @@ class ServerService extends Notifier<ServerState> {
     );
 
     final completer = Completer<PrepareUploadResponseDto>();
-    _pendingSessions[sessionId] = _PendingSession(session: session, completer: completer);
+    _pendingSessions[sessionId] = _PendingSession(
+      session: session,
+      completer: completer,
+    );
     state = state.copyWith(activeSession: session);
-    _logger.info('Incoming transfer from ${sender.alias} (${session.files.length} files)');
+    _logger.info(
+      'Incoming transfer from ${sender.alias} (${session.files.length} files)',
+    );
     onIncomingSession?.call(session);
 
     try {
-      final response = await completer.future.timeout(const Duration(minutes: 5));
+      final response = await completer.future.timeout(
+        const Duration(minutes: 5),
+      );
       await SimpleServer.writeJson(request, HttpStatus.ok, response.toJson());
     } on TimeoutException {
       _pendingSessions.remove(sessionId);
       state = state.copyWith(clearSession: true);
-      await SimpleServer.writeJson(request, HttpStatus.forbidden, {'message': 'Timed out'});
+      await SimpleServer.writeJson(request, HttpStatus.forbidden, {
+        'message': 'Timed out',
+      });
     } catch (error) {
       _pendingSessions.remove(sessionId);
-      final cancelled =
-          error is HttpException && error.message == 'Cancelled';
+      final cancelled = error is HttpException && error.message == 'Cancelled';
       if (state.activeSession?.sessionId == sessionId) {
         if (cancelled) {
           state = state.copyWith(clearSession: true);
         } else {
           state = state.copyWith(
-            activeSession: session.copyWith(status: ReceiveSessionStatus.declined),
+            activeSession: session.copyWith(
+              status: ReceiveSessionStatus.declined,
+            ),
           );
         }
       }
-      await SimpleServer.writeJson(
-        request,
-        HttpStatus.forbidden,
-        {'message': cancelled ? 'Cancelled' : 'Declined'},
-      );
+      await SimpleServer.writeJson(request, HttpStatus.forbidden, {
+        'message': cancelled ? 'Cancelled' : 'Declined',
+      });
     }
   }
 
@@ -416,7 +474,9 @@ class ServerService extends Notifier<ServerState> {
     final params = request.uri.queryParameters;
     final token = params['token'];
     if (token == null || !_activeTokens.containsKey(token)) {
-      await SimpleServer.writeJson(request, HttpStatus.forbidden, {'message': 'Invalid token'});
+      await SimpleServer.writeJson(request, HttpStatus.forbidden, {
+        'message': 'Invalid token',
+      });
       return;
     }
 
@@ -430,9 +490,8 @@ class ServerService extends Notifier<ServerState> {
       totalBytes: target.file.size,
       onProgress: (value) => progress.updateFile(target.file.id, value),
     );
-    _savedPaths
-        .putIfAbsent(target.sessionId, () => {})
-        [target.file.id] = savedLocation;
+    _savedPaths.putIfAbsent(target.sessionId, () => {})[target.file.id] =
+        savedLocation;
     progress.completeFile(
       target.file.id,
       savedPath: savedLocation,
@@ -441,11 +500,15 @@ class ServerService extends Notifier<ServerState> {
     );
     await SimpleServer.writeEmpty(request, HttpStatus.ok);
 
-    final remaining = _activeTokens.values.where((value) => value.sessionId == target.sessionId);
+    final remaining = _activeTokens.values.where(
+      (value) => value.sessionId == target.sessionId,
+    );
     if (remaining.isEmpty) {
       final session = state.activeSession;
       if (session != null && session.sessionId == target.sessionId) {
-        await ref.notifier(historyProvider).recordReceive(
+        await ref
+            .notifier(historyProvider)
+            .recordReceive(
               session: session.copyWith(status: ReceiveSessionStatus.completed),
               outcome: TransferOutcome.completed,
               savedPaths: _savedPaths.remove(target.sessionId) ?? const {},
@@ -499,7 +562,9 @@ class ServerService extends Notifier<ServerState> {
 
     final session = state.activeSession;
     if (session != null && session.sessionId == sessionId && recordHistory) {
-      await ref.notifier(historyProvider).recordReceive(
+      await ref
+          .notifier(historyProvider)
+          .recordReceive(
             session: session,
             outcome: TransferOutcome.cancelled,
             savedPaths: _savedPaths.remove(sessionId) ?? const {},
@@ -528,10 +593,7 @@ class _PendingSession {
 }
 
 class _UploadTarget {
-  _UploadTarget({
-    required this.sessionId,
-    required this.file,
-  });
+  _UploadTarget({required this.sessionId, required this.file});
 
   final String sessionId;
   final FileDto file;

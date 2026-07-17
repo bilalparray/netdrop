@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:logging/logging.dart';
 import 'package:netdrop/config/constants.dart';
 import 'package:netdrop/model/stored_security_context.dart';
@@ -41,6 +42,11 @@ Future<RefenaContainer> preInit() async {
 }
 
 Future<void> postInit(Ref ref) async {
+  if (kIsWeb) {
+    _logger.info('$appDisplayName started (web preview — LAN transfer unavailable)');
+    return;
+  }
+
   final persistence = ref.read(persistenceProvider);
   final settings = ref.read(settingsProvider);
   await ref.notifier(localDeviceInfoProvider).load(

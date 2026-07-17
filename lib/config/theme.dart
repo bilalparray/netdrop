@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:netdrop/config/app_colors.dart';
@@ -37,9 +38,12 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
           surfaceContainerHighest: NetDropColors.surfaceMuted,
         );
 
-  final textTheme = GoogleFonts.interTextTheme(
-    ThemeData(brightness: brightness).textTheme,
-  ).apply(
+  final textTheme = kIsWeb
+      ? ThemeData(brightness: brightness).textTheme
+      : GoogleFonts.interTextTheme(
+          ThemeData(brightness: brightness).textTheme,
+        );
+  final resolvedTextTheme = textTheme.apply(
     bodyColor: colorScheme.onSurface,
     displayColor: colorScheme.onSurface,
   );
@@ -50,7 +54,7 @@ ThemeData buildAppTheme({Brightness brightness = Brightness.light}) {
     colorScheme: colorScheme,
     extensions: [semantics],
     scaffoldBackgroundColor: isDark ? const Color(0xFF0F1419) : NetDropColors.background,
-    textTheme: textTheme.copyWith(
+    textTheme: resolvedTextTheme.copyWith(
       headlineSmall: textTheme.headlineSmall?.copyWith(
         fontWeight: FontWeight.w700,
         letterSpacing: -0.3,

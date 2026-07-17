@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:downloadsfolder/downloadsfolder.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
 import 'package:netdrop/util/file_category.dart';
 import 'package:path_provider/path_provider.dart';
@@ -30,6 +31,15 @@ class FileSaver {
 
   /// Human-readable save locations shown in Settings and Receive tab.
   Future<List<ReceiveSaveLocation>> getReceiveSaveLocations() async {
+    if (kIsWeb) {
+      return const [
+        ReceiveSaveLocation(
+          label: 'Web preview',
+          path: 'Install the Android or desktop app to receive files',
+        ),
+      ];
+    }
+
     if (Platform.isAndroid && await _androidSdkVersion >= 29) {
       return const [
         ReceiveSaveLocation(label: 'Photos & images', path: 'Pictures/NetDrop'),
