@@ -80,6 +80,19 @@ final selectedFilesProvider = NotifierProvider<SelectedFilesService, List<CrossF
   (ref) => SelectedFilesService(),
 );
 
+final filePrepInProgressProvider = NotifierProvider<FilePrepService, bool>(
+  (ref) => FilePrepService(),
+);
+
+class FilePrepService extends Notifier<bool> {
+  @override
+  bool init() => false;
+
+  void setPreparing(bool preparing) {
+    state = preparing;
+  }
+}
+
 class SelectedFilesService extends Notifier<List<CrossFile>> {
   @override
   List<CrossFile> init() => const [];

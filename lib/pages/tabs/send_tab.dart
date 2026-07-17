@@ -1,6 +1,7 @@
 import 'package:file_picker/file_picker.dart';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 
 import 'package:netdrop/config/netdrop_theme_ext.dart';
 
@@ -66,6 +67,7 @@ class SendTab extends StatelessWidget {
     final nearbyDevices = devices.deviceListExcluding(localFingerprint);
 
     final selectedFiles = context.watch(selectedFilesProvider);
+    final preparingFiles = context.watch(filePrepInProgressProvider);
 
     final deviceType = context.watch(deviceTypeProvider);
 
@@ -212,19 +214,42 @@ class SendTab extends StatelessWidget {
           const SizedBox(height: 12),
         ],
 
-        FileCategoryGrid(onCategoryTap: (category) => _pickFiles(context, category)),
-
-        const SizedBox(height: 12),
-
-        OutlinedButton.icon(
-
-          onPressed: () => _addMessage(context),
-
-          icon: const Icon(Icons.message_outlined),
-
-          label: const Text('Add text message'),
-
-        ),
+        if (preparingFiles)
+          Padding(
+            padding: const EdgeInsets.symmetric(vertical: 56),
+            child: Center(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  SizedBox(
+                    width: 36,
+                    height: 36,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 3,
+                      color: context.cs.primary,
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                  Text(
+                    'Loading files',
+                    style: Theme.of(context).textTheme.bodyLarge?.copyWith(
+                          color: context.nd.textSecondary,
+                          fontWeight: FontWeight.w500,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+          )
+        else ...[
+          FileCategoryGrid(onCategoryTap: (category) => _pickFiles(context, category)),
+          const SizedBox(height: 12),
+          OutlinedButton.icon(
+            onPressed: () => _addMessage(context),
+            icon: const Icon(Icons.message_outlined),
+            label: const Text('Add text message'),
+          ),
+        ],
 
       ],
 
@@ -259,48 +284,66 @@ class SendTab extends StatelessWidget {
 
 
   Future<void> _pickFiles(BuildContext context, FilePickCategory category) async {
-    final List<CrossFile> files;
+    final prep = context.notifier(filePrepInProgressProvider);
+    prep.setPreparing(true);
+    await SchedulerBinding.instance.endOfFrame;
 
-    if (category == FilePickCategory.images) {
-      files = await pickMultipleImages();
-    } else {
-      final result = await FilePicker.pickFiles(
-        type: category.pickerType,
-        allowedExtensions: category.allowedExtensions,
-        allowMultiple: true,
-      );
+    try {
+      final List<CrossFile> files;
 
-      if (result == null || result.files.isEmpty) {
+      if (category == FilePickCategory.images) {
+        if (usesNativeImageGallery) {
+          final picked = await pickImagesFromGallery();
+          if (picked.isEmpty || !context.mounted) {
+            return;
+          }
+          files = await crossFilesFromImagePicks(picked);
+        } else {
+          final result = await pickImagesFromFilePicker();
+          if (result == null || result.files.isEmpty || !context.mounted) {
+            return;
+          }
+          files = await crossFilesFromPickerResult(
+            result: result,
+            fallbackMime: category.fallbackMime,
+          );
+        }
+      } else {
+        final result = await FilePicker.pickFiles(
+          type: category.pickerType,
+          allowedExtensions: category.allowedExtensions,
+          allowMultiple: true,
+        );
+
+        if (result == null || result.files.isEmpty || !context.mounted) {
+          return;
+        }
+
+        files = await crossFilesFromPickerResult(
+          result: result,
+          fallbackMime: category.fallbackMime,
+        );
+      }
+
+      if (!context.mounted) {
         return;
       }
 
-      files = await crossFilesFromPickerResult(
-        result: result,
-        fallbackMime: category.fallbackMime,
-      );
+      if (files.isEmpty) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('Could not read the selected files. Try again.')),
+        );
+        return;
+      }
+
+      final existing = context.read(selectedFilesProvider);
+      context.notifier(selectedFilesProvider).setFiles([...existing, ...files]);
+    } finally {
+      if (context.mounted) {
+        prep.setPreparing(false);
+      }
     }
-
-    if (!context.mounted) {
-      return;
-    }
-
-    if (files.isEmpty) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text('Could not read the selected files. Try again.')),
-      );
-      return;
-    }
-
-    final existing = context.read(selectedFilesProvider);
-    context.notifier(selectedFilesProvider).setFiles([...existing, ...files]);
-
-    final addedLabel = files.length == 1 ? '1 file added' : '${files.length} files added';
-    ScaffoldMessenger.of(context).showSnackBar(
-      SnackBar(content: Text(addedLabel)),
-    );
   }
-
-
 
   Future<void> _addMessage(BuildContext context) async {
 
