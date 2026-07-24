@@ -4,7 +4,6 @@ import 'package:netdrop/config/constants.dart';
 import 'package:netdrop/model/stored_security_context.dart';
 import 'package:netdrop/network/device_connect.dart';
 import 'package:netdrop/network/multicast_service.dart';
-import 'package:netdrop/provider/device_preferences_provider.dart';
 import 'package:netdrop/provider/network/server_provider.dart';
 import 'package:netdrop/provider/local_device_info_provider.dart';
 import 'package:netdrop/provider/persistence_provider.dart';
@@ -46,13 +45,17 @@ Future<RefenaContainer> preInit() async {
 
 Future<void> postInit(Ref ref) async {
   if (kIsWeb) {
-    _logger.info('$appDisplayName started (web preview — LAN transfer unavailable)');
+    _logger.info(
+      '$appDisplayName started (web preview — LAN transfer unavailable)',
+    );
     return;
   }
 
   final persistence = ref.read(persistenceProvider);
   final settings = ref.read(settingsProvider);
-  await ref.notifier(localDeviceInfoProvider).load(
+  await ref
+      .notifier(localDeviceInfoProvider)
+      .load(
         currentAlias: settings.alias,
         hasSavedAlias: persistence.hasSavedAlias,
       );

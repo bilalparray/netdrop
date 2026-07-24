@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:mobile_scanner/mobile_scanner.dart';
-import 'package:netdrop/config/constants.dart';
 import 'package:netdrop/config/netdrop_theme_ext.dart';
 import 'package:netdrop/model/device.dart';
 import 'package:netdrop/network/device_connect.dart';
@@ -65,7 +64,9 @@ class _PairDevicePageState extends State<PairDevicePage> with Refena {
   Future<void> _connectManualIp() async {
     final parsed = parseHostPort(_ipController.text);
     if (parsed == null) {
-      setState(() => _error = 'Enter a valid IP or IP:port (e.g. 192.168.1.5:53317)');
+      setState(
+        () => _error = 'Enter a valid IP or IP:port (e.g. 192.168.1.5:53317)',
+      );
       return;
     }
 
@@ -129,7 +130,11 @@ class _PairDevicePageState extends State<PairDevicePage> with Refena {
         ),
         body: TabBarView(
           children: [
-            _ScanTab(onDetect: _onQrDetected, connecting: _connecting, error: _error),
+            _ScanTab(
+              onDetect: _onQrDetected,
+              connecting: _connecting,
+              error: _error,
+            ),
             _ManualIpTab(
               controller: _ipController,
               connecting: _connecting,
@@ -210,9 +215,9 @@ class _ManualIpTab extends StatelessWidget {
         children: [
           Text(
             'Connect when discovery fails (guest Wi‑Fi, iOS, etc.)',
-            style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: context.nd.textSecondary,
-                ),
+            style: Theme.of(
+              context,
+            ).textTheme.bodyMedium?.copyWith(color: context.nd.textSecondary),
           ),
           const SizedBox(height: 20),
           TextField(
@@ -281,8 +286,8 @@ class _MyQrTab extends StatelessWidget {
               Text(
                 'Ask the other device to scan this code',
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                      color: context.nd.textSecondary,
-                    ),
+                  color: context.nd.textSecondary,
+                ),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 24),
@@ -301,9 +306,9 @@ class _MyQrTab extends StatelessWidget {
               const SizedBox(height: 20),
               SelectableText(
                 payload,
-                style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                      color: context.nd.textMuted,
-                    ),
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: context.nd.textMuted),
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 12),

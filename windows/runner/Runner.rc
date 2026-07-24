@@ -89,13 +89,13 @@ BEGIN
     BEGIN
         BLOCK "040904e4"
         BEGIN
-            VALUE "CompanyName", "com.netdrop" "\0"
-            VALUE "FileDescription", "NetDrop" "\0"
+            VALUE "CompanyName", "com.qayham" "\0"
+            VALUE "FileDescription", "netdrop" "\0"
             VALUE "FileVersion", VERSION_AS_STRING "\0"
-            VALUE "InternalName", "NetDrop" "\0"
-            VALUE "LegalCopyright", "Copyright (C) 2026 com.netdrop. All rights reserved." "\0"
+            VALUE "InternalName", "netdrop" "\0"
+            VALUE "LegalCopyright", "Copyright (C) 2026 com.qayham. All rights reserved." "\0"
             VALUE "OriginalFilename", "netdrop.exe" "\0"
-            VALUE "ProductName", "NetDrop" "\0"
+            VALUE "ProductName", "netdrop" "\0"
             VALUE "ProductVersion", VERSION_AS_STRING "\0"
         END
     END
