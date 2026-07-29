@@ -307,6 +307,19 @@ class _SettingsTabState extends State<SettingsTab> with Refena {
                 ),
                 const Divider(height: 1),
                 const SizedBox(height: 8),
+                 ListTile(
+                  contentPadding: EdgeInsets.zero,
+                  leading: Icon(Icons.system_update_outlined, color: context.cs.primary),
+                  title: const Text('Download Netdrop for Pc'),
+                  subtitle: Text(
+                    'Download NetDrop on Pc and share with your phone',
+                    style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                          color: context.nd.textSecondary,
+                        ),
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => _openQayham(context),
+                ),
               ],
               ListTile(
                 contentPadding: EdgeInsets.zero,
@@ -342,7 +355,6 @@ class _SettingsTabState extends State<SettingsTab> with Refena {
         const SectionHeader(title: 'Danger zone'),
 
         const SizedBox(height: 12),
-
         OutlinedButton.icon(
 
           onPressed: () => _confirmReset(context),
@@ -370,6 +382,19 @@ class _SettingsTabState extends State<SettingsTab> with Refena {
     if (!opened) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(content: Text('Could not open Google Play ($playStoreListingUrl)')),
+      );
+    }
+  }
+
+    Future<void> _openQayham(BuildContext context) async {
+    final opened = await openQayham();
+    if (!context.mounted) {
+      return;
+    }
+
+    if (!opened) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Could not open Qayham.com  https://qayham.com/products/netdrop/')),
       );
     }
   }

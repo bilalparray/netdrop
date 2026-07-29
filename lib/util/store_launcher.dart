@@ -18,3 +18,19 @@ Future<bool> openPlayStoreListing() async {
 
   return false;
 }
+
+
+Future<bool> openQayham() async {
+  final uri = Uri.parse('https://qayham.com/products/netdrop/');
+
+  if (await canLaunchUrl(uri)) {
+    return launchUrl(uri, mode: LaunchMode.externalApplication);
+  }
+
+  final webUri = Uri.parse('https://qayham.com/products/netdrop/');
+  if (await canLaunchUrl(webUri)) {
+    return launchUrl(webUri, mode: LaunchMode.externalApplication);
+  }
+
+  return false;
+}
